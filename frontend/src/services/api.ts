@@ -28,7 +28,7 @@ api.interceptors.response.use((response) => {
       const converted: any = {};
       for (const [key, value] of Object.entries(obj)) {
         if (
-          (key === 'CostPerUnit' || key === 'Quantity' || key === 'totalCost' || key === 'ingredientCount' || key === 'TotalAmount' || key === 'TotalRevenue' || key === 'Subtotal' || key === 'UnitPrice' || key === 'CurrentStock' || key === 'MinimumStock') &&
+          (key === 'CostPerUnit' || key === 'Quantity' || key === 'totalCost' || key === 'ingredientCount' || key === 'TotalAmount' || key === 'TotalRevenue' || key === 'Subtotal' || key === 'UnitPrice' || key === 'CurrentStock' || key === 'MinimumStock' || key === 'Price') &&
           typeof value === 'string' &&
           !isNaN(Number(value))
         ) {
@@ -78,6 +78,8 @@ export interface Ingredient {
 export interface Product {
   Id: number;
   Name: string;
+  Price: number;
+  ingredientCount?: number;
   ingredients?: ProductIngredient[];
 }
 
@@ -110,10 +112,14 @@ export const updateIngredient = (id: number, data: Partial<Ingredient>) =>
 
 // Products
 export const getProducts = () => api.get<Product[]>('/products');
-export const createProduct = (data: { name: string }) =>
+export const createProduct = (data: { name: string; price?: number }) =>
   api.post<Product>('/products', data);
 export const getProduct = (id: number) =>
   api.get<Product>(`/products/${id}`);
+export const updateProductPrice = (id: number, price: number) =>
+  api.put<Product>(`/products/${id}/price`, { price });
+export const deleteProduct = (id: number) =>
+  api.delete(`/products/${id}`);
 
 // Recipes
 export const addIngredientToRecipe = (
