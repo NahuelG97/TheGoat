@@ -2,7 +2,9 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
-import Cashier from './pages/Cashier';
+import Layout from './components/Layout';
+import Products from './pages/Products';
+import StockControl from './pages/StockControl';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token } = useAuth();
@@ -10,20 +12,39 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const AppRoutes: React.FC = () => {
-  const { token } = useAuth();
-
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route
-        path="/cashier"
+        path="/"
         element={
           <ProtectedRoute>
-            <Cashier />
+            <Layout>
+              <Navigate to="/products" />
+            </Layout>
           </ProtectedRoute>
         }
       />
-      <Route path="/" element={<Navigate to={token ? '/cashier' : '/login'} />} />
+      <Route
+        path="/products"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Products />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stock"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <StockControl />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 };
@@ -39,3 +60,4 @@ export const App: React.FC = () => {
 };
 
 export default App;
+
