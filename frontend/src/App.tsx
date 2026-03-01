@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Layout from './components/Layout';
 import Products from './pages/Products';
 import StockControl from './pages/StockControl';
+import Sales from './pages/Sales';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token } = useAuth();
@@ -41,6 +42,16 @@ const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <Layout>
               <StockControl />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Sales />
             </Layout>
           </ProtectedRoute>
         }

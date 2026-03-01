@@ -28,7 +28,7 @@ api.interceptors.response.use((response) => {
       const converted: any = {};
       for (const [key, value] of Object.entries(obj)) {
         if (
-          (key === 'CostPerUnit' || key === 'Quantity' || key === 'totalCost' || key === 'ingredientCount') &&
+          (key === 'CostPerUnit' || key === 'Quantity' || key === 'totalCost' || key === 'ingredientCount' || key === 'TotalAmount' || key === 'TotalRevenue' || key === 'Subtotal' || key === 'UnitPrice' || key === 'CurrentStock' || key === 'MinimumStock') &&
           typeof value === 'string' &&
           !isNaN(Number(value))
         ) {
@@ -131,5 +131,32 @@ export const removeIngredientFromRecipe = (productId: number, ingredientId: numb
 
 export const getProductCost = (productId: number) =>
   api.get<ProductCost>(`/recipes/${productId}/cost`);
+
+// Sales
+export interface SaleItem {
+  productId: number;
+  quantity: number;
+}
+
+export interface SaleRequest {
+  items: SaleItem[];
+  notes?: string;
+}
+
+export interface Sale {
+  Id: number;
+  SaleNumber: string;
+  TotalAmount: number;
+  Status: string;
+  CreatedAt: string;
+}
+
+export const getSales = () => api.get<Sale[]>('/sales');
+export const getSaleDetails = (saleId: number) =>
+  api.get<any>(`/sales/${saleId}`);
+export const createSale = (data: SaleRequest) =>
+  api.post<any>('/sales', data);
+export const getSalesSummary = (startDate?: string, endDate?: string) =>
+  api.get('/sales/summary/range', { params: { startDate, endDate } });
 
 export default api;

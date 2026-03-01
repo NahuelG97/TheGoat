@@ -22,6 +22,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const menuItems = [
     { path: '/products', label: '🍕 Productos', icon: '🍕' },
     { path: '/stock', label: '📦 Control de Stock', icon: '📦' },
+    { path: '/sales', label: '💰 Ventas', icon: '💰' },
   ];
 
   return (
