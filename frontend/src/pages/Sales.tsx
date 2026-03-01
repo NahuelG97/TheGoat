@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import SaleDetailsModal from '../components/SaleDetailsModal';
 
 interface Product {
   Id: number;
   Name: string;
+  Price: number;
 }
 
 interface SaleItem {
@@ -12,6 +14,7 @@ interface SaleItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  notes: string;
 }
 
 interface Sale {
@@ -27,12 +30,14 @@ export const Sales: React.FC = () => {
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
   const [quantity, setQuantity] = useState('1');
-  const [notes, setNotes] = useState('');
+  const [itemNotes, setItemNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [sales, setSales] = useState<Sale[]>([]);
   const [showSalesHistory, setShowSalesHistory] = useState(false);
+  const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   // Load products
   useEffect(() => {
@@ -68,24 +73,31 @@ export const Sales: React.FC = () => {
     }
 
     try {
-      // Get product cost
-      const response = await api.get(`/recipes/${selectedProductId}/cost`);
-      const unitPrice = response.data.totalCost || 0;
+      // Get product details including price
+      const product = products.find((p) => p.Id === selectedProductId);
+      if (!product) {
+        setError('Producto no encontrado');
+        return;
+      }
+
+      const unitPrice = product.Price || 0;
 
       const newItem: SaleItem = {
         productId: selectedProductId as number,
-        productName:
-          products.find((p) => p.Id === selectedProductId)?.Name || 'Producto',
+        productName: product.Name,
         quantity: parseInt(quantity),
         unitPrice: unitPrice,
         subtotal: unitPrice * parseInt(quantity),
+        notes: itemNotes,
       };
 
       setSaleItems([...saleItems, newItem]);
       setSelectedProductId('');
       setQuantity('1');
+      setItemNotes('');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al obtener costo del producto');
+      setError('Error al agregar producto');
+      console.error(err);
     }
   };
 
@@ -108,15 +120,14 @@ export const Sales: React.FC = () => {
         items: saleItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
+          notes: item.notes,
         })),
-        notes: notes,
       });
 
       setSuccess(
         `¡Venta registrada! Número: ${response.data.sale.SaleNumber}`
       );
       setSaleItems([]);
-      setNotes('');
       await loadSales();
 
       // Clear success message after 3 seconds
@@ -179,6 +190,9 @@ export const Sales: React.FC = () => {
                   <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
                     Fecha
                   </th>
+                  <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -188,7 +202,7 @@ export const Sales: React.FC = () => {
                       {sale.SaleNumber}
                     </td>
                     <td className="px-4 sm:px-6 py-4 text-green-600 font-semibold">
-                      ${sale.TotalAmount.toFixed(2)}
+                      ${Number(sale.TotalAmount).toFixed(2)}
                     </td>
                     <td className="px-4 sm:px-6 py-4">
                       <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
@@ -197,6 +211,17 @@ export const Sales: React.FC = () => {
                     </td>
                     <td className="px-4 sm:px-6 py-4 text-sm text-gray-600">
                       {new Date(sale.CreatedAt).toLocaleDateString()} {new Date(sale.CreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-center">
+                      <button
+                        onClick={() => {
+                          setSelectedSaleId(sale.Id);
+                          setShowDetailModal(true);
+                        }}
+                        className="px-3 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition"
+                      >
+                        Ver Detalles
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -231,7 +256,7 @@ export const Sales: React.FC = () => {
                   <option value="">Selecciona un producto...</option>
                   {products.map((product) => (
                     <option key={product.Id} value={product.Id}>
-                      {product.Name}
+                      {product.Name} - ${Number(product.Price).toFixed(2)}
                     </option>
                   ))}
                 </select>
@@ -251,6 +276,20 @@ export const Sales: React.FC = () => {
                 />
               </div>
 
+              {/* Item Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notas (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={itemNotes}
+                  onChange={(e) => setItemNotes(e.target.value)}
+                  placeholder="Ej: sin lechuga, sin mayonesa"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+
               {/* Add Button */}
               <button
                 type="submit"
@@ -259,20 +298,6 @@ export const Sales: React.FC = () => {
                 + Agregar Producto
               </button>
             </form>
-
-            {/* Notes */}
-            <div className="border-t pt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Notas (opcional)
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ej: Descuento especial, cliente VIP, etc."
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
-            </div>
           </div>
 
           {/* Cart Summary */}
@@ -290,24 +315,29 @@ export const Sales: React.FC = () => {
                     className="p-3 bg-gray-50 rounded-lg space-y-1"
                   >
                     <div className="flex justify-between items-start">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold text-gray-900">
                           {item.productName}
                         </p>
                         <p className="text-xs text-gray-600">
-                          {item.quantity} x ${item.unitPrice.toFixed(2)}
+                          {item.quantity} x ${Number(item.unitPrice).toFixed(2)}
                         </p>
+                        {item.notes && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            📝 {item.notes}
+                          </p>
+                        )}
                       </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveItem(index)}
-                        className="text-red-500 hover:text-red-700 text-sm font-medium"
+                        className="text-red-500 hover:text-red-700 text-sm font-medium ml-2"
                       >
                         ✕
                       </button>
                     </div>
                     <div className="text-right font-semibold text-green-600">
-                      ${item.subtotal.toFixed(2)}
+                      ${Number(item.subtotal).toFixed(2)}
                     </div>
                   </div>
                 ))
@@ -341,6 +371,16 @@ export const Sales: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Sale Details Modal */}
+      <SaleDetailsModal
+        isOpen={showDetailModal}
+        saleId={selectedSaleId}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedSaleId(null);
+        }}
+      />
     </div>
   );
 };

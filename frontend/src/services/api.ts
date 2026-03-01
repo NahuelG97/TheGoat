@@ -142,11 +142,11 @@ export const getProductCost = (productId: number) =>
 export interface SaleItem {
   productId: number;
   quantity: number;
+  notes?: string;
 }
 
 export interface SaleRequest {
   items: SaleItem[];
-  notes?: string;
 }
 
 export interface Sale {

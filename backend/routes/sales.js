@@ -26,7 +26,7 @@ router.get('/:saleId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Sale not found' });
     }
 
-    const detailsQuery = `SELECT sd.Id, sd.ProductId, p.Name as ProductName, sd.Quantity, sd.UnitPrice, sd.Subtotal FROM SalesDetails sd JOIN Products p ON sd.ProductId = p.Id WHERE sd.SaleId = @saleId`;
+    const detailsQuery = `SELECT sd.Id, sd.ProductId, p.Name as ProductName, sd.Quantity, sd.UnitPrice, sd.Subtotal, sd.Notes FROM SalesDetails sd JOIN Products p ON sd.ProductId = p.Id WHERE sd.SaleId = @saleId`;
     const details = await queryWithParams(detailsQuery, { saleId: parseInt(saleId) });
 
     res.json({
@@ -67,10 +67,10 @@ router.post('/', authMiddleware, async (req, res) => {
         return res.status(404).json({ error: `Product ${item.productId} not found` });
       }
 
-      // Get product cost
-      const costQuery = `SELECT COALESCE(SUM(pi.Quantity * i.CostPerUnit), 0) as ProductCost FROM ProductIngredients pi JOIN Ingredients i ON pi.IngredientId = i.Id WHERE pi.ProductId = @productId`;
-      const costResults = await queryWithParams(costQuery, { productId: parseInt(item.productId) });
-      const unitPrice = parseFloat(costResults[0]?.ProductCost || 0);
+      // Get product price (use selling price, not ingredient cost)
+      const priceQuery = `SELECT COALESCE(Price, 0) as ProductPrice FROM Products WHERE Id = @productId`;
+      const priceResults = await queryWithParams(priceQuery, { productId: parseInt(item.productId) });
+      const unitPrice = parseFloat(priceResults[0]?.ProductPrice || 0);
       const subtotal = unitPrice * item.quantity;
       
       totalAmount += subtotal;
@@ -79,7 +79,8 @@ router.post('/', authMiddleware, async (req, res) => {
         productName: productResults[0].Name,
         quantity: parseInt(item.quantity),
         unitPrice: unitPrice,
-        subtotal: subtotal
+        subtotal: subtotal,
+        notes: item.notes || ''
       });
     }
 
@@ -93,26 +94,36 @@ router.post('/', authMiddleware, async (req, res) => {
     const saleNumber = saleNumberResults[0]?.NextNumber || 'SALE-0000001';
 
     // Create sale
-    const createSaleQuery = `INSERT INTO Sales (SaleNumber, UserId, TotalAmount, Notes) VALUES (@saleNumber, @userId, @totalAmount, @notes); SELECT SCOPE_IDENTITY() as Id`;
-    const saleIdResults = await executeWithParams(createSaleQuery, {
+    const createSaleQuery = `INSERT INTO Sales (SaleNumber, UserId, TotalAmount, Notes) VALUES (@saleNumber, @userId, @totalAmount, @notes)`;
+    await executeWithParams(createSaleQuery, {
       saleNumber: saleNumber,
       userId: userId,
       totalAmount: totalAmount,
       notes: notes || ''
     });
 
-    const saleId = parseInt(saleIdResults[0]?.Id) || 0;
+    // Get the sale ID we just created
+    const getSaleIdQuery = `SELECT Id FROM Sales WHERE SaleNumber = @saleNumber`;
+    const saleIdResults = await queryWithParams(getSaleIdQuery, { saleNumber: saleNumber });
+    const saleId = parseInt(saleIdResults[0]?.Id, 10) || 0;
+
+    if (saleId === 0) {
+      console.error('Failed to get sale ID for', saleNumber);
+      console.error('saleIdResults:', saleIdResults);
+      return res.status(500).json({ error: 'Failed to get sale ID' });
+    }
 
     // Insert sale details and process stock deduction
     for (const item of validatedItems) {
-      // Insert sale detail
-      const detailQuery = `INSERT INTO SalesDetails (SaleId, ProductId, Quantity, UnitPrice, Subtotal) VALUES (@saleId, @productId, @quantity, @unitPrice, @subtotal)`;
+      // Insert sale detail with notes
+      const detailQuery = `INSERT INTO SalesDetails (SaleId, ProductId, Quantity, UnitPrice, Subtotal, Notes) VALUES (@saleId, @productId, @quantity, @unitPrice, @subtotal, @notes)`;
       await executeWithParams(detailQuery, {
         saleId: saleId,
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        subtotal: item.subtotal
+        subtotal: item.subtotal,
+        notes: item.notes || ''
       });
 
       // Get recipe for product
