@@ -50,6 +50,16 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Sale must have at least one item' });
     }
 
+    // Get current open cash session
+    const sessionQuery = `SELECT Id FROM CashSessions WHERE UserId = @userId AND Status = 'OPEN'`;
+    const sessionResults = await queryWithParams(sessionQuery, { userId: parseInt(userId) });
+    
+    if (sessionResults.length === 0) {
+      return res.status(400).json({ error: 'No open cash session. Please open a cash drawer first.' });
+    }
+
+    const cashSessionId = parseInt(sessionResults[0].Id);
+
     // Validate each item and get product info
     let totalAmount = 0;
     const validatedItems = [];
@@ -93,13 +103,14 @@ router.post('/', authMiddleware, async (req, res) => {
     const saleNumberResults = await queryWithParams(saleNumberQuery, {});
     const saleNumber = saleNumberResults[0]?.NextNumber || 'SALE-0000001';
 
-    // Create sale
-    const createSaleQuery = `INSERT INTO Sales (SaleNumber, UserId, TotalAmount, Notes) VALUES (@saleNumber, @userId, @totalAmount, @notes)`;
+    // Create sale with CashSessionId
+    const createSaleQuery = `INSERT INTO Sales (SaleNumber, UserId, TotalAmount, Notes, CashSessionId) VALUES (@saleNumber, @userId, @totalAmount, @notes, @cashSessionId)`;
     await executeWithParams(createSaleQuery, {
       saleNumber: saleNumber,
       userId: userId,
       totalAmount: totalAmount,
-      notes: notes || ''
+      notes: notes || '',
+      cashSessionId: cashSessionId
     });
 
     // Get the sale ID we just created

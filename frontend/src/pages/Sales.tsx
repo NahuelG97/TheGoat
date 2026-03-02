@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import api from '../services/api';
+import api, { getCurrentCashSession, CashSession } from '../services/api';
 import SaleDetailsModal from '../components/SaleDetailsModal';
+import { OpenCashScreen } from '../components/OpenCashScreen';
+import { CloseCashDrawerModal } from '../components/CloseCashDrawerModal';
 
 interface Product {
   Id: number;
@@ -38,11 +40,17 @@ export const Sales: React.FC = () => {
   const [showSalesHistory, setShowSalesHistory] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  
+  // Cash Session states
+  const [cashSession, setCashSession] = useState<CashSession | null>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
+  const [showCloseCashModal, setShowCloseCashModal] = useState(false);
 
-  // Load products
+  // Load products and cash session
   useEffect(() => {
     loadProducts();
     loadSales();
+    loadCashSession();
   }, []);
 
   const loadProducts = async () => {
@@ -60,6 +68,19 @@ export const Sales: React.FC = () => {
       setSales(response.data);
     } catch (err: any) {
       console.error('Error loading sales:', err);
+    }
+  };
+
+  const loadCashSession = async () => {
+    try {
+      setLoadingSession(true);
+      const response = await getCurrentCashSession();
+      console.log('getCurrentCashSession response:', response);
+      setCashSession(response.data);
+    } catch (err: any) {
+      console.error('Error loading cash session:', err);
+    } finally {
+      setLoadingSession(false);
     }
   };
 
@@ -141,6 +162,22 @@ export const Sales: React.FC = () => {
 
   const totalAmount = saleItems.reduce((sum, item) => sum + item.subtotal, 0);
 
+  // Show loading state
+  if (loadingSession) {
+    return (
+      <div className="p-4 sm:p-8 flex items-center justify-center min-h-screen">
+        <p className="text-gray-600">Loading cash session...</p>
+      </div>
+    );
+  }
+
+  // Show open cash screen if no session
+  if (!cashSession) {
+    return (
+      <OpenCashScreen onDrawerOpened={loadCashSession} />
+    );
+  }
+
   return (
     <div className="p-4 sm:p-8 space-y-6">
       {/* Header */}
@@ -148,13 +185,26 @@ export const Sales: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">💰 Ventas</h1>
           <p className="text-gray-600 mt-1">Registra y gestiona ventas de productos</p>
+          {cashSession && (
+            <p className="text-xs text-gray-500 mt-2">
+              🟢 Caja abierta - ${typeof cashSession.OpeningAmount === 'number' ? cashSession.OpeningAmount.toFixed(2) : parseFloat(String(cashSession.OpeningAmount || 0)).toFixed(2)}
+            </p>
+          )}
         </div>
-        <button
-          onClick={() => setShowSalesHistory(!showSalesHistory)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm font-medium"
-        >
-          {showSalesHistory ? 'Ver Nueva Venta' : 'Ver Historial'}
-        </button>
+        <div className="flex gap-2 flex-col sm:flex-row">
+          <button
+            onClick={() => setShowSalesHistory(!showSalesHistory)}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm font-medium"
+          >
+            {showSalesHistory ? 'Ver Nueva Venta' : 'Ver Historial'}
+          </button>
+          <button
+            onClick={() => setShowCloseCashModal(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium"
+          >
+            🔐 Cerrar Turno
+          </button>
+        </div>
       </div>
 
       {/* Error message */}
@@ -381,6 +431,19 @@ export const Sales: React.FC = () => {
           setSelectedSaleId(null);
         }}
       />
+
+      {/* Close Cash Drawer Modal */}
+      {cashSession && (
+        <CloseCashDrawerModal
+          isOpen={showCloseCashModal}
+          cashSessionId={cashSession.Id}
+          onClose={() => setShowCloseCashModal(false)}
+          onSuccess={() => {
+            setShowCloseCashModal(false);
+            loadCashSession();
+          }}
+        />
+      )}
     </div>
   );
 };

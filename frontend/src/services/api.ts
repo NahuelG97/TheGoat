@@ -28,13 +28,13 @@ api.interceptors.response.use((response) => {
       const converted: any = {};
       for (const [key, value] of Object.entries(obj)) {
         if (
-          (key === 'CostPerUnit' || key === 'Quantity' || key === 'totalCost' || key === 'ingredientCount' || key === 'TotalAmount' || key === 'TotalRevenue' || key === 'Subtotal' || key === 'UnitPrice' || key === 'CurrentStock' || key === 'MinimumStock' || key === 'Price') &&
+          (key === 'CostPerUnit' || key === 'Quantity' || key === 'totalCost' || key === 'ingredientCount' || key === 'TotalAmount' || key === 'TotalRevenue' || key === 'Subtotal' || key === 'UnitPrice' || key === 'CurrentStock' || key === 'MinimumStock' || key === 'Price' || key === 'OpeningAmount' || key === 'ClosingAmount' || key === 'ExpectedAmount' || key === 'Difference' || key === 'totalSales') &&
           typeof value === 'string' &&
           !isNaN(Number(value))
         ) {
           converted[key] = parseFloat(value as string);
         } else if (
-          (key === 'Id' || key === 'IngredientId' || key === 'ProductId' || key === 'id') &&
+          (key === 'Id' || key === 'IngredientId' || key === 'ProductId' || key === 'id' || key === 'UserId' || key === 'CashSessionId') &&
           typeof value === 'string' &&
           !isNaN(Number(value))
         ) {
@@ -164,5 +164,34 @@ export const createSale = (data: SaleRequest) =>
   api.post<any>('/sales', data);
 export const getSalesSummary = (startDate?: string, endDate?: string) =>
   api.get('/sales/summary/range', { params: { startDate, endDate } });
+
+// Cash Sessions
+export interface CashSession {
+  Id: number;
+  UserId: number;
+  Status: string;
+  OpeningAmount: number;
+  ClosingAmount?: number;
+  ExpectedAmount?: number;
+  Difference?: number;
+  OpenedAt: string;
+  ClosedAt?: string;
+  Notes?: string;
+}
+
+export const getCurrentCashSession = () =>
+  api.get<CashSession | null>('/cash/current');
+
+export const openCashSession = (openingAmount: number) =>
+  api.post<CashSession>('/cash/open', { openingAmount });
+
+export const closeCashSession = (cashSessionId: number, closingAmount: number, notes?: string) =>
+  api.post<any>('/cash/close', { cashSessionId, closingAmount, notes });
+
+export const getCashSessionHistory = (userId: number) =>
+  api.get<CashSession[]>(`/cash/history/${userId}`);
+
+export const getCashSessionDetails = (sessionId: number) =>
+  api.get<any>(`/cash/${sessionId}`);
 
 export default api;

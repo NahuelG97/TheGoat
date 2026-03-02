@@ -10,6 +10,7 @@ const productsRoutes = require('./routes/products');
 const recipesRoutes = require('./routes/recipes');
 const stockRoutes = require('./routes/stock');
 const salesRoutes = require('./routes/sales');
+const cashRoutes = require('./routes/cash');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/products', productsRoutes);
 app.use('/recipes', recipesRoutes);
 app.use('/stock', stockRoutes);
 app.use('/sales', salesRoutes);
+app.use('/cash', cashRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
