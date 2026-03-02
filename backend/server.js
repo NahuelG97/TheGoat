@@ -13,6 +13,7 @@ const salesRoutes = require('./routes/sales');
 const cashRoutes = require('./routes/cash');
 const paymentsRoutes = require('./routes/payments');
 const auditRoutes = require('./routes/audit');
+const arqueosRoutes = require('./routes/arqueos');
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use('/sales', salesRoutes);
 app.use('/cash', cashRoutes);
 app.use('/payments', paymentsRoutes);
 app.use('/audit', auditRoutes);
+app.use('/arqueos', arqueosRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

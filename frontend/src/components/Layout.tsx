@@ -23,6 +23,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: '/products', label: '🍕 Productos', icon: '🍕' },
     { path: '/stock', label: '📦 Control de Stock', icon: '📦' },
     { path: '/sales', label: '💰 Ventas', icon: '💰' },
+    { path: '/arqueos', label: '📊 Arqueos', icon: '📊' },
   ];
 
   return (

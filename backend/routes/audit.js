@@ -27,8 +27,13 @@ router.put('/:saleId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Reason is required for editing' });
     }
 
-    // Get current sale
-    const currentSaleQuery = `SELECT s.*, JSON_QUERY((SELECT PaymentMethodId, Amount FROM SalesPayments WHERE SaleId = s.Id FOR JSON AUTO)) as CurrentPayments FROM Sales s WHERE s.Id = @saleId`;
+    // Get current sale and verify cash session is not closed
+    const currentSaleQuery = `
+      SELECT s.*, cs.Status as CashSessionStatus
+      FROM Sales s
+      JOIN CashSessions cs ON s.CashSessionId = cs.Id
+      WHERE s.Id = @saleId
+    `;
     const currentSales = await queryWithParams(currentSaleQuery, { saleId: parseInt(saleId) });
     
     if (currentSales.length === 0) {
@@ -36,6 +41,12 @@ router.put('/:saleId', authMiddleware, async (req, res) => {
     }
 
     const currentSale = currentSales[0];
+    
+    // Check if cash session is closed
+    if (currentSale.CashSessionStatus === 'CLOSED') {
+      return res.status(400).json({ error: 'Cannot edit sales from a closed cash session' });
+    }
+
     let oldValues = JSON.stringify({ items: currentSale.CurrentPayments });
 
     // Delete old sale items
@@ -116,8 +127,13 @@ router.post('/:saleId/cancel', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Reason is required for cancellation' });
     }
 
-    // Get current sale
-    const currentSaleQuery = `SELECT * FROM Sales WHERE Id = @saleId`;
+    // Get current sale and verify cash session is not closed
+    const currentSaleQuery = `
+      SELECT s.*, cs.Status as CashSessionStatus
+      FROM Sales s
+      JOIN CashSessions cs ON s.CashSessionId = cs.Id
+      WHERE s.Id = @saleId
+    `;
     const currentSales = await queryWithParams(currentSaleQuery, { saleId: parseInt(saleId) });
     
     if (currentSales.length === 0) {
@@ -125,6 +141,11 @@ router.post('/:saleId/cancel', authMiddleware, async (req, res) => {
     }
 
     const currentSale = currentSales[0];
+
+    // Check if cash session is closed
+    if (currentSale.CashSessionStatus === 'CLOSED') {
+      return res.status(400).json({ error: 'Cannot cancel sales from a closed cash session' });
+    }
 
     // Mark sale as CANCELLED
     const updateSaleQuery = `UPDATE Sales SET Status = 'CANCELLED' WHERE Id = @saleId`;

@@ -1,27 +1,41 @@
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
 const execAsync = promisify(exec);
 
 // Template for executing sqlcmd commands
 async function executeSqlCmd(sqlQuery) {
   try {
-    // Build sqlcmd command with proper escaping
-    // Use -s to set delimiter (tab character), -h for header lines, -w for line width
-    const escapedQuery = sqlQuery.replace(/"/g, '\\"');
-    const command = `sqlcmd -E -S localhost -d ${process.env.DATABASE_NAME || 'RotisserieDB'} -Q "${escapedQuery}" -h 1 -s "	" -w 32767 -W`;
+    // Create a temporary file to store the SQL query
+    // This avoids shell escaping issues
+    const tempFileName = path.join(os.tmpdir(), `sqlquery_${Date.now()}.sql`);
     
-    const { stdout, stderr } = await execAsync(command, {
-      maxBuffer: 1024 * 1024 * 10,
-      shell: 'cmd.exe'
-    });
-    
-    if (stderr && !stderr.includes('Warning')) {
-      console.error('SQL Error:', stderr);
+    try {
+      // Write query to temporary file
+      fs.writeFileSync(tempFileName, sqlQuery, 'utf8');
+      
+      // Execute using -i to read from file
+      const command = `sqlcmd -E -S localhost -d ${process.env.DATABASE_NAME || 'RotisserieDB'} -i "${tempFileName}" -h 1 -s "	" -w 32767 -W`;
+      
+      const { stdout, stderr } = await execAsync(command, {
+        maxBuffer: 1024 * 1024 * 10,
+        shell: 'cmd.exe'
+      });
+      
+      if (stderr && !stderr.includes('Warning')) {
+        console.error('SQL Error:', stderr);
+      }
+      
+      return stdout.trim();
+    } finally {
+      // Clean up temporary file
+      if (fs.existsSync(tempFileName)) {
+        fs.unlinkSync(tempFileName);
+      }
     }
-    
-    return stdout.trim();
   } catch (err) {
     console.error('SQL Execution Error:', err.message);
     throw err;
