@@ -3,10 +3,10 @@ const router = express.Router();
 const { queryWithParams, executeWithParams } = require('../db');
 const authMiddleware = require('../middleware/auth');
 
-// Get all sales
+// Get all sales (exclude cancelled)
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const query = `SELECT s.Id, s.SaleNumber, s.TotalAmount, s.Status, s.CreatedAt, u.Username FROM Sales s JOIN Users u ON s.UserId = u.Id ORDER BY s.CreatedAt DESC`;
+    const query = `SELECT s.Id, s.SaleNumber, s.TotalAmount, s.Status, s.CreatedAt, u.Username FROM Sales s JOIN Users u ON s.UserId = u.Id WHERE s.Status != 'CANCELLED' ORDER BY s.CreatedAt DESC`;
     const results = await queryWithParams(query, {});
     res.json(results);
   } catch (error) {
@@ -42,7 +42,7 @@ router.get('/:saleId', authMiddleware, async (req, res) => {
 // Create sale with automatic stock deduction
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { items, notes } = req.body;
+    const { items, payments, notes } = req.body;
     const userId = req.user.id;
 
     // Validate input
@@ -50,17 +50,12 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Sale must have at least one item' });
     }
 
-    // Get current open cash session
-    const sessionQuery = `SELECT Id FROM CashSessions WHERE UserId = @userId AND Status = 'OPEN'`;
-    const sessionResults = await queryWithParams(sessionQuery, { userId: parseInt(userId) });
-    
-    if (sessionResults.length === 0) {
-      return res.status(400).json({ error: 'No open cash session. Please open a cash drawer first.' });
+    // Validate payments
+    if (!payments || payments.length === 0) {
+      return res.status(400).json({ error: 'Sale must have at least one payment method' });
     }
 
-    const cashSessionId = parseInt(sessionResults[0].Id);
-
-    // Validate each item and get product info
+    // Verify total of payments matches total of items
     let totalAmount = 0;
     const validatedItems = [];
 
@@ -94,17 +89,40 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
 
+    // Validate payments add up to total
+    let totalPaid = 0;
+    for (const payment of payments) {
+      if (!payment.paymentMethodId || payment.amount === undefined || payment.amount < 0) {
+        return res.status(400).json({ error: 'Invalid payment method or amount' });
+      }
+      totalPaid += parseFloat(payment.amount);
+    }
+
+    if (Math.abs(totalPaid - totalAmount) > 0.01) { // Allow for floating point errors
+      return res.status(400).json({ error: `Total paid ($${totalPaid.toFixed(2)}) does not match sale total ($${totalAmount.toFixed(2)})` });
+    }
+
     if (totalAmount <= 0) {
       return res.status(400).json({ error: 'Invalid total amount' });
     }
 
-    // Generate sale number
-    const saleNumberQuery = `SELECT 'SALE-' + FORMAT(MAX(CAST(REPLACE(SaleNumber, 'SALE-', '') AS INT)) + 1, '0000000') as NextNumber FROM Sales WHERE SaleNumber LIKE 'SALE-%'`;
+    // Get current open cash session
+    const sessionQuery = `SELECT Id FROM CashSessions WHERE UserId = @userId AND Status = 'OPEN'`;
+    const sessionResults = await queryWithParams(sessionQuery, { userId: parseInt(userId) });
+    
+    if (sessionResults.length === 0) {
+      return res.status(400).json({ error: 'No open cash session. Please open a cash drawer first.' });
+    }
+
+    const cashSessionId = parseInt(sessionResults[0].Id);
+
+    // Generate sale number using TRY_CAST to handle invalid numeric conversions
+    const saleNumberQuery = `SELECT 'SALE-' + FORMAT(COALESCE(MAX(TRY_CAST(REPLACE(SaleNumber, 'SALE-', '') AS INT)), 0) + 1, '0000000') as NextNumber FROM Sales WHERE SaleNumber LIKE 'SALE-%'`;
     const saleNumberResults = await queryWithParams(saleNumberQuery, {});
     const saleNumber = saleNumberResults[0]?.NextNumber || 'SALE-0000001';
 
-    // Create sale with CashSessionId
-    const createSaleQuery = `INSERT INTO Sales (SaleNumber, UserId, TotalAmount, Notes, CashSessionId) VALUES (@saleNumber, @userId, @totalAmount, @notes, @cashSessionId)`;
+    // Create sale with CashSessionId and Status='COMPLETED' (active sales)
+    const createSaleQuery = `INSERT INTO Sales (SaleNumber, UserId, TotalAmount, Notes, CashSessionId, Status) VALUES (@saleNumber, @userId, @totalAmount, @notes, @cashSessionId, 'COMPLETED')`;
     await executeWithParams(createSaleQuery, {
       saleNumber: saleNumber,
       userId: userId,
@@ -122,6 +140,16 @@ router.post('/', authMiddleware, async (req, res) => {
       console.error('Failed to get sale ID for', saleNumber);
       console.error('saleIdResults:', saleIdResults);
       return res.status(500).json({ error: 'Failed to get sale ID' });
+    }
+
+    // Insert payments for this sale
+    for (const payment of payments) {
+      const paymentQuery = `INSERT INTO SalesPayments (SaleId, PaymentMethodId, Amount) VALUES (@saleId, @paymentMethodId, @amount)`;
+      await executeWithParams(paymentQuery, {
+        saleId: saleId,
+        paymentMethodId: parseInt(payment.paymentMethodId),
+        amount: parseFloat(payment.amount)
+      });
     }
 
     // Insert sale details and process stock deduction
@@ -194,7 +222,7 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Get sales summary by date range
+// Get sales summary by date range (only COMPLETED sales)
 router.get('/summary/range', authMiddleware, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;

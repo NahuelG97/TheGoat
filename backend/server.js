@@ -11,6 +11,8 @@ const recipesRoutes = require('./routes/recipes');
 const stockRoutes = require('./routes/stock');
 const salesRoutes = require('./routes/sales');
 const cashRoutes = require('./routes/cash');
+const paymentsRoutes = require('./routes/payments');
+const auditRoutes = require('./routes/audit');
 
 const app = express();
 
@@ -26,6 +28,8 @@ app.use('/recipes', recipesRoutes);
 app.use('/stock', stockRoutes);
 app.use('/sales', salesRoutes);
 app.use('/cash', cashRoutes);
+app.use('/payments', paymentsRoutes);
+app.use('/audit', auditRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

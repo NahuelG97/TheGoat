@@ -101,27 +101,42 @@ router.post('/close', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Cash session is already closed' });
     }
 
-    // Get total sales for this session
-    const salesQuery = `SELECT COALESCE(SUM(TotalAmount), 0) as TotalSales FROM Sales WHERE CashSessionId = @sessionId`;
+    // Get total sales for this session (only COMPLETED - active)
+    const salesQuery = `SELECT COALESCE(SUM(TotalAmount), 0) as TotalSales FROM Sales WHERE CashSessionId = @sessionId AND Status = 'COMPLETED'`;
     const salesResults = await queryWithParams(salesQuery, { sessionId: parseInt(cashSessionId) });
     const totalSales = parseFloat(salesResults[0]?.TotalSales || 0);
+
+    // Get breakdown by payment method
+    const breakdownQuery = `SELECT pm.Code, COALESCE(SUM(sp.Amount), 0) as Amount FROM PaymentMethods pm LEFT JOIN SalesPayments sp ON pm.Id = sp.PaymentMethodId LEFT JOIN Sales s ON sp.SaleId = s.Id AND s.CashSessionId = @sessionId AND s.Status = 'COMPLETED' GROUP BY pm.Code`;
+    const breakdownResults = await queryWithParams(breakdownQuery, { sessionId: parseInt(cashSessionId) });
+    
+    let cashAmount = 0, transferAmount = 0, cardAmount = 0;
+    for (const breakdown of breakdownResults) {
+      const amount = parseFloat(breakdown.Amount || 0);
+      if (breakdown.Code === 'CASH') cashAmount = amount;
+      else if (breakdown.Code === 'TRANSFER') transferAmount = amount;
+      else if (breakdown.Code === 'CARD') cardAmount = amount;
+    }
 
     // Calculate expected amount
     const expectedAmount = parseFloat(session.OpeningAmount) + totalSales;
     const difference = parseFloat(closingAmount) - expectedAmount;
 
-    // Update session
-    const updateQuery = `UPDATE CashSessions SET Status = 'CLOSED', ClosingAmount = @closingAmount, ExpectedAmount = @expectedAmount, Difference = @difference, ClosedAt = GETDATE(), Notes = @notes WHERE Id = @sessionId`;
+    // Update session  with payment breakdown
+    const updateQuery = `UPDATE CashSessions SET Status = 'CLOSED', ClosingAmount = @closingAmount, ExpectedAmount = @expectedAmount, Difference = @difference, CashAmount = @cashAmount, TransferAmount = @transferAmount, CardAmount = @cardAmount, ClosedAt = GETDATE(), Notes = @notes WHERE Id = @sessionId`;
     await executeWithParams(updateQuery, {
       sessionId: parseInt(cashSessionId),
       closingAmount: parseFloat(closingAmount),
       expectedAmount: expectedAmount,
       difference: difference,
+      cashAmount: cashAmount,
+      transferAmount: transferAmount,
+      cardAmount: cardAmount,
       notes: notes || ''
     });
 
     // Return updated session
-    const getQuery = `SELECT Id, UserId, Status, OpeningAmount, ClosingAmount, ExpectedAmount, Difference, OpenedAt, ClosedAt, Notes FROM CashSessions WHERE Id = @sessionId`;
+    const getQuery = `SELECT Id, UserId, Status, OpeningAmount, ClosingAmount, ExpectedAmount, Difference, CashAmount, TransferAmount, CardAmount, OpenedAt, ClosedAt, Notes FROM CashSessions WHERE Id = @sessionId`;
     const result = await queryWithParams(getQuery, { sessionId: parseInt(cashSessionId) });
     res.json({
       ...result[0],

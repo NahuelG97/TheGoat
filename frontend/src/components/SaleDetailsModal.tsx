@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import api from '../services/api';
+import api, { SalePayment, getSalePayments } from '../services/api';
+import { EditSaleModal } from './EditSaleModal';
+import { CancelSaleModal } from './CancelSaleModal';
 
 interface SaleItem {
   Id: number;
@@ -32,8 +34,11 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({
   onClose,
 }) => {
   const [saleDetail, setSaleDetail] = useState<SaleDetail | null>(null);
+  const [payments, setPayments] = useState<SalePayment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   useEffect(() => {
     if (isOpen && saleId) {
@@ -47,6 +52,10 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({
       setError('');
       const response = await api.get(`/sales/${saleId}`);
       setSaleDetail(response.data);
+      
+      // Load payments for this sale
+      const paymentsResponse = await getSalePayments(saleId!);
+      setPayments(paymentsResponse.data || []);
     } catch (err: any) {
       setError('Error cargando detalles de la venta');
       console.error(err);
@@ -156,6 +165,27 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({
                 </div>
               </div>
 
+              {/* Payments */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Método de Pago</h3>
+                <div className="bg-blue-50 rounded-lg overflow-hidden">
+                  {payments.length > 0 ? (
+                    <div className="space-y-2 p-4">
+                      {payments.map((payment) => (
+                        <div key={payment.Id} className="flex justify-between items-center">
+                          <span className="text-gray-700">{payment.Name}</span>
+                          <span className="font-medium text-gray-900">
+                            ${Number(payment.Amount).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-gray-600">Sin métodos de pago registrados</div>
+                  )}
+                </div>
+              </div>
+
               {/* Total */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex justify-between items-center">
@@ -170,7 +200,23 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4">
+        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 space-y-2">
+          {saleDetail && saleDetail.Status === 'COMPLETED' && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition"
+              >
+                ✏️ Editar
+              </button>
+              <button
+                onClick={() => setShowCancelModal(true)}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition"
+              >
+                ✕ Cancelar
+              </button>
+            </div>
+          )}
           <button
             onClick={onClose}
             className="w-full px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition"
@@ -178,9 +224,47 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({
             Cerrar
           </button>
         </div>
+
+        {/* Edit Sale Modal */}
+        {saleDetail && (
+          <EditSaleModal
+            isOpen={showEditModal}
+            saleId={saleDetail.Id}
+            saleNumber={saleDetail.SaleNumber}
+            items={saleDetail.items.map((item) => ({
+              productId: item.ProductId,
+              productName: item.ProductName,
+              quantity: item.Quantity,
+              unitPrice: item.UnitPrice,
+              subtotal: item.Subtotal,
+              notes: item.Notes,
+            }))}
+            payments={payments}
+            totalAmount={saleDetail.TotalAmount}
+            onClose={() => setShowEditModal(false)}
+            onSuccess={() => {
+              setShowEditModal(false);
+              loadSaleDetail();
+            }}
+          />
+        )}
+
+        {/* Cancel Sale Modal */}
+        {saleDetail && (
+          <CancelSaleModal
+            isOpen={showCancelModal}
+            saleNumber={saleDetail.SaleNumber}
+            saleId={saleDetail.Id}
+            onClose={() => setShowCancelModal(false)}
+            onSuccess={() => {
+              setShowCancelModal(false);
+              loadSaleDetail();
+            }}
+          />
+        )}
       </div>
     </div>
   );
 };
 
-export default SaleDetailsModal;
+export { SaleDetailsModal };

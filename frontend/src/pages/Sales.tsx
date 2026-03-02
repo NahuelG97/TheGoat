@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import api, { getCurrentCashSession, CashSession } from '../services/api';
-import SaleDetailsModal from '../components/SaleDetailsModal';
+import api, { getCurrentCashSession, CashSession, SalePayment } from '../services/api';
+import { SaleDetailsModal } from '../components/SaleDetailsModal';
 import { OpenCashScreen } from '../components/OpenCashScreen';
 import { CloseCashDrawerModal } from '../components/CloseCashDrawerModal';
+import PaymentSelector from '../components/PaymentSelector';
+import { EditSaleModal } from '../components/EditSaleModal';
+import { CancelSaleModal } from '../components/CancelSaleModal';
 
 interface Product {
   Id: number;
@@ -19,6 +22,11 @@ interface SaleItem {
   notes: string;
 }
 
+interface Payment {
+  paymentMethodId: number;
+  amount: number;
+}
+
 interface Sale {
   Id: number;
   SaleNumber: string;
@@ -27,12 +35,22 @@ interface Sale {
   CreatedAt: string;
 }
 
+interface SaleDetail {
+  Id: number;
+  SaleNumber: string;
+  TotalAmount: number;
+  Status: string;
+  CreatedAt: string;
+  items: SaleItem[];
+}
+
 export const Sales: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
   const [quantity, setQuantity] = useState('1');
   const [itemNotes, setItemNotes] = useState('');
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -40,11 +58,18 @@ export const Sales: React.FC = () => {
   const [showSalesHistory, setShowSalesHistory] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedEditSaleId, setSelectedEditSaleId] = useState<number | null>(null);
+  const [selectedCancelSaleId, setSelectedCancelSaleId] = useState<number | null>(null);
+  const [editSaleData, setEditSaleData] = useState<SaleDetail | null>(null);
+  const [editSalePayments, setEditSalePayments] = useState<SalePayment[]>([]);
+  const [cancelSaleNumber, setCancelSaleNumber] = useState<string>('');
   
   // Cash Session states
   const [cashSession, setCashSession] = useState<CashSession | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [showCloseCashModal, setShowCloseCashModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   // Load products and cash session
   useEffect(() => {
@@ -83,6 +108,41 @@ export const Sales: React.FC = () => {
       setLoadingSession(false);
     }
   };
+
+  const loadSaleForEdit = async (saleId: number) => {
+    try {
+      const response = await api.get(`/sales/${saleId}`);
+      setEditSaleData(response.data);
+      
+      const paymentsResponse = await api.getSalePayments(saleId);
+      setEditSalePayments(paymentsResponse);
+    } catch (err: any) {
+      console.error('Error loading sale for edit:', err);
+    }
+  };
+
+  const loadSaleForCancel = (saleId: number) => {
+    const sale = sales.find((s) => s.Id === saleId);
+    if (sale) {
+      setCancelSaleNumber(sale.SaleNumber);
+    }
+  };
+
+  // Handle edit button click
+  useEffect(() => {
+    if (selectedEditSaleId) {
+      loadSaleForEdit(selectedEditSaleId);
+      setShowEditModal(true);
+    }
+  }, [selectedEditSaleId]);
+
+  // Handle cancel button click
+  useEffect(() => {
+    if (selectedCancelSaleId) {
+      loadSaleForCancel(selectedCancelSaleId);
+      setShowCancelModal(true);
+    }
+  }, [selectedCancelSaleId]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,6 +195,18 @@ export const Sales: React.FC = () => {
       return;
     }
 
+    if (payments.length === 0) {
+      setError('Debes seleccionar al menos un método de pago');
+      return;
+    }
+
+    // Validate payments sum equals total
+    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    if (Math.abs(totalPaid - totalAmount) > 0.01) {
+      setError(`El total pagado debe ser ${totalAmount.toFixed(2)}`);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await api.post('/sales', {
@@ -143,12 +215,14 @@ export const Sales: React.FC = () => {
           quantity: item.quantity,
           notes: item.notes,
         })),
+        payments: payments,
       });
 
       setSuccess(
         `¡Venta registrada! Número: ${response.data.sale.SaleNumber}`
       );
       setSaleItems([]);
+      setPayments([]);
       await loadSales();
 
       // Clear success message after 3 seconds
@@ -247,7 +321,7 @@ export const Sales: React.FC = () => {
               </thead>
               <tbody className="divide-y">
                 {sales.map((sale) => (
-                  <tr key={sale.Id} className="hover:bg-gray-50">
+                  <tr key={sale.Id} className={`hover:bg-gray-50 ${sale.Status === 'CANCELLED' ? 'bg-red-50' : ''}`}>
                     <td className="px-4 sm:px-6 py-4 font-medium text-gray-900">
                       {sale.SaleNumber}
                     </td>
@@ -255,7 +329,11 @@ export const Sales: React.FC = () => {
                       ${Number(sale.TotalAmount).toFixed(2)}
                     </td>
                     <td className="px-4 sm:px-6 py-4">
-                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        sale.Status === 'CANCELLED'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-green-100 text-green-800'
+                      }`}>
                         {sale.Status}
                       </span>
                     </td>
@@ -263,15 +341,33 @@ export const Sales: React.FC = () => {
                       {new Date(sale.CreatedAt).toLocaleDateString()} {new Date(sale.CreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="px-4 sm:px-6 py-4 text-center">
-                      <button
-                        onClick={() => {
-                          setSelectedSaleId(sale.Id);
-                          setShowDetailModal(true);
-                        }}
-                        className="px-3 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition"
-                      >
-                        Ver Detalles
-                      </button>
+                      <div className="flex gap-2 justify-center flex-wrap">
+                        {sale.Status === 'COMPLETED' && (
+                          <>
+                            <button
+                              onClick={() => setSelectedEditSaleId(sale.Id)}
+                              className="px-2 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition"
+                            >
+                              ✏️ Editar
+                            </button>
+                            <button
+                              onClick={() => setSelectedCancelSaleId(sale.Id)}
+                              className="px-2 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 transition"
+                            >
+                              ✕ Cancelar
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedSaleId(sale.Id);
+                            setShowDetailModal(true);
+                          }}
+                          className="px-2 py-1 bg-gray-500 text-white rounded text-xs font-medium hover:bg-gray-600 transition"
+                        >
+                          📋 Detalles
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -395,17 +491,26 @@ export const Sales: React.FC = () => {
             </div>
 
             {/* Total */}
-            <div className="border-t pt-4">
-              <div className="flex justify-between items-center mb-4">
+            <div className="border-t pt-4 space-y-4">
+              <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold text-gray-900">Total:</span>
                 <span className="text-2xl font-bold text-green-600">
                   ${totalAmount.toFixed(2)}
                 </span>
               </div>
 
+              {/* Payment Selector */}
+              {totalAmount > 0 && (
+                <PaymentSelector
+                  totalAmount={totalAmount}
+                  onChange={setPayments}
+                  disabled={loading}
+                />
+              )}
+
               <button
                 onClick={handleRegisterSale}
-                disabled={loading || saleItems.length === 0}
+                disabled={loading || saleItems.length === 0 || payments.length === 0}
                 className="w-full px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Procesando...' : '💾 Registrar Venta'}
@@ -441,6 +546,56 @@ export const Sales: React.FC = () => {
           onSuccess={() => {
             setShowCloseCashModal(false);
             loadCashSession();
+          }}
+        />
+      )}
+
+      {/* Edit Sale Modal */}
+      {editSaleData && (
+        <EditSaleModal
+          isOpen={showEditModal}
+          saleId={editSaleData.Id}
+          saleNumber={editSaleData.SaleNumber}
+          items={editSaleData.items.map((item) => ({
+            productId: item.ProductId,
+            productName: item.ProductName,
+            quantity: item.Quantity,
+            unitPrice: item.UnitPrice,
+            subtotal: item.Subtotal,
+            notes: item.Notes,
+          }))}
+          payments={editSalePayments}
+          totalAmount={editSaleData.TotalAmount}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedEditSaleId(null);
+            setEditSaleData(null);
+          }}
+          onSuccess={() => {
+            setShowEditModal(false);
+            setSelectedEditSaleId(null);
+            setEditSaleData(null);
+            loadSales();
+          }}
+        />
+      )}
+
+      {/* Cancel Sale Modal */}
+      {selectedCancelSaleId && (
+        <CancelSaleModal
+          isOpen={showCancelModal}
+          saleNumber={cancelSaleNumber}
+          saleId={selectedCancelSaleId}
+          onClose={() => {
+            setShowCancelModal(false);
+            setSelectedCancelSaleId(null);
+            setCancelSaleNumber('');
+          }}
+          onSuccess={() => {
+            setShowCancelModal(false);
+            setSelectedCancelSaleId(null);
+            setCancelSaleNumber('');
+            loadSales();
           }}
         />
       )}

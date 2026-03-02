@@ -28,13 +28,13 @@ api.interceptors.response.use((response) => {
       const converted: any = {};
       for (const [key, value] of Object.entries(obj)) {
         if (
-          (key === 'CostPerUnit' || key === 'Quantity' || key === 'totalCost' || key === 'ingredientCount' || key === 'TotalAmount' || key === 'TotalRevenue' || key === 'Subtotal' || key === 'UnitPrice' || key === 'CurrentStock' || key === 'MinimumStock' || key === 'Price' || key === 'OpeningAmount' || key === 'ClosingAmount' || key === 'ExpectedAmount' || key === 'Difference' || key === 'totalSales') &&
+          (key === 'CostPerUnit' || key === 'Quantity' || key === 'totalCost' || key === 'ingredientCount' || key === 'TotalAmount' || key === 'TotalRevenue' || key === 'Subtotal' || key === 'UnitPrice' || key === 'CurrentStock' || key === 'MinimumStock' || key === 'Price' || key === 'OpeningAmount' || key === 'ClosingAmount' || key === 'ExpectedAmount' || key === 'Difference' || key === 'totalSales' || key === 'Amount' || key === 'CashAmount' || key === 'TransferAmount' || key === 'CardAmount') &&
           typeof value === 'string' &&
           !isNaN(Number(value))
         ) {
           converted[key] = parseFloat(value as string);
         } else if (
-          (key === 'Id' || key === 'IngredientId' || key === 'ProductId' || key === 'id' || key === 'UserId' || key === 'CashSessionId') &&
+          (key === 'Id' || key === 'IngredientId' || key === 'ProductId' || key === 'id' || key === 'UserId' || key === 'CashSessionId' || key === 'PaymentMethodId' || key === 'SaleId') &&
           typeof value === 'string' &&
           !isNaN(Number(value))
         ) {
@@ -174,9 +174,37 @@ export interface CashSession {
   ClosingAmount?: number;
   ExpectedAmount?: number;
   Difference?: number;
+  CashAmount?: number;
+  TransferAmount?: number;
+  CardAmount?: number;
   OpenedAt: string;
   ClosedAt?: string;
   Notes?: string;
+}
+
+export interface PaymentMethod {
+  Id: number;
+  Code: string;
+  Name: string;
+  Description?: string;
+}
+
+export interface SalePayment {
+  Id: number;
+  Amount: number;
+  PaymentMethodId: number;
+  Code: string;
+  Name: string;
+}
+
+export interface SaleAudit {
+  Id: number;
+  Action: string;
+  Reason?: string;
+  ChangedAt: string;
+  ChangedByUser?: string;
+  OldValues?: string;
+  NewValues?: string;
 }
 
 export const getCurrentCashSession = () =>
@@ -193,5 +221,28 @@ export const getCashSessionHistory = (userId: number) =>
 
 export const getCashSessionDetails = (sessionId: number) =>
   api.get<any>(`/cash/${sessionId}`);
+
+// Payment methods
+export const getPaymentMethods = () =>
+  api.get<PaymentMethod[]>('/payments/methods');
+
+export const getSalePayments = (saleId: number) =>
+  api.get<SalePayment[]>(`/payments/sale/${saleId}`);
+
+export const addSalePayment = (saleId: number, paymentMethodId: number, amount: number) =>
+  api.post<SalePayment>('/payments/add', { saleId, paymentMethodId, amount });
+
+export const deletePayment = (paymentId: number) =>
+  api.delete(`/payments/${paymentId}`);
+
+// Sales management
+export const editSale = (saleId: number, items: any[], payments: any[], reason: string) =>
+  api.put<any>(`/audit/${saleId}`, { items, payments, reason });
+
+export const cancelSale = (saleId: number, reason: string) =>
+  api.post<any>(`/audit/${saleId}/cancel`, { reason });
+
+export const getSaleAudit = (saleId: number) =>
+  api.get<SaleAudit[]>(`/audit/sale/${saleId}`);
 
 export default api;
