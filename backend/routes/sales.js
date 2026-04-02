@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { queryWithParams, executeWithParams } = require('../db');
-const authMiddleware = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 
 // Get all sales (exclude cancelled)
 router.get('/', authMiddleware, async (req, res) => {

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { queryWithParams, executeWithParams } = require('../db');
-const authMiddleware = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 
 // Get sale audit history
 router.get('/sale/:saleId', authMiddleware, async (req, res) => {

@@ -19,7 +19,7 @@ export const Login: React.FC = () => {
     try {
       const response = await loginAPI({ username, password });
       login(response.data.token, response.data.user);
-      navigate('/cashier');
+      navigate('/sales');
     } catch (err) {
       setError('Invalid credentials');
     } finally {

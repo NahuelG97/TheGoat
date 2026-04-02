@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { initializePool } = require('./db');
+const { authMiddleware } = require('./middleware/auth');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -14,6 +15,7 @@ const cashRoutes = require('./routes/cash');
 const paymentsRoutes = require('./routes/payments');
 const auditRoutes = require('./routes/audit');
 const arqueosRoutes = require('./routes/arqueos');
+const usersRoutes = require('./routes/users');
 
 const app = express();
 
@@ -23,15 +25,16 @@ app.use(cors());
 
 // Routes
 app.use('/auth', authRoutes);
-app.use('/ingredients', ingredientsRoutes);
-app.use('/products', productsRoutes);
-app.use('/recipes', recipesRoutes);
-app.use('/stock', stockRoutes);
-app.use('/sales', salesRoutes);
-app.use('/cash', cashRoutes);
-app.use('/payments', paymentsRoutes);
-app.use('/audit', auditRoutes);
-app.use('/arqueos', arqueosRoutes);
+app.use('/ingredients', authMiddleware, ingredientsRoutes);
+app.use('/products', authMiddleware, productsRoutes);
+app.use('/recipes', authMiddleware, recipesRoutes);
+app.use('/stock', authMiddleware, stockRoutes);
+app.use('/sales', authMiddleware, salesRoutes);
+app.use('/cash', authMiddleware, cashRoutes);
+app.use('/payments', authMiddleware, paymentsRoutes);
+app.use('/audit', authMiddleware, auditRoutes);
+app.use('/arqueos', authMiddleware, arqueosRoutes);
+app.use('/users', authMiddleware, usersRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

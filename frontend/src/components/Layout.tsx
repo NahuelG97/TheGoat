@@ -19,12 +19,19 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const menuItems = [
-    { path: '/products', label: '🍕 Productos', icon: '🍕' },
-    { path: '/stock', label: '📦 Control de Stock', icon: '📦' },
-    { path: '/sales', label: '💰 Ventas', icon: '💰' },
-    { path: '/arqueos', label: '📊 Arqueos', icon: '📊' },
+  // Definir todos los items del menú
+  const allMenuItems = [
+    { path: '/products', label: '🍕 Productos', icon: '🍕', roles: ['ADMINISTRADOR', 'ENCARGADO', 'COCINA'] },
+    { path: '/stock', label: '📦 Control de Stock', icon: '📦', roles: ['ADMINISTRADOR', 'ENCARGADO'] },
+    { path: '/sales', label: '💰 Ventas', icon: '💰', roles: ['ADMINISTRADOR', 'ENCARGADO'] },
+    { path: '/arqueos', label: '📊 Arqueos', icon: '📊', roles: ['ADMINISTRADOR'] },
+    { path: '/users', label: '👤 Usuarios', icon: '👤', roles: ['ADMINISTRADOR'] },
   ];
+
+  // Filtrar items según el rol del usuario actual
+  const menuItems = allMenuItems.filter(item => 
+    user?.role && item.roles.includes(user.role)
+  );
 
   return (
     <div className="min-h-screen bg-gray-100">

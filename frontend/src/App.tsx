@@ -7,6 +7,7 @@ import Products from './pages/Products';
 import StockControl from './pages/StockControl';
 import Sales from './pages/Sales';
 import Arqueos from './pages/Arqueos';
+import Users from './pages/Users';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token } = useAuth();
@@ -63,6 +64,16 @@ const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <Layout>
               <Arqueos />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Users />
             </Layout>
           </ProtectedRoute>
         }

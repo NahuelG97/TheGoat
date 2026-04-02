@@ -422,4 +422,48 @@ export const getArqueoSaleDetail = async (saleId: number) => {
   return { data: transformed };
 };
 
+// Users API
+export interface User {
+  id: number;
+  username: string;
+  role: 'ADMINISTRADOR' | 'ENCARGADO' | 'COCINA';
+  active: boolean;
+  createdAt: string;
+  createdByUsername?: string;
+}
+
+export const getUsers = async () => {
+  const response = await api.get<User[]>('/users');
+  return response;
+};
+
+export const getUserById = async (id: number) => {
+  const response = await api.get<User>(`/users/${id}`);
+  return response;
+};
+
+export const createUser = async (data: {
+  username: string;
+  password: string;
+  role: 'ADMINISTRADOR' | 'ENCARGADO' | 'COCINA';
+}) => {
+  const response = await api.post<User>('/users', data);
+  return response;
+};
+
+export const updateUser = async (id: number, data: {
+  username?: string;
+  password?: string;
+  role?: 'ADMINISTRADOR' | 'ENCARGADO' | 'COCINA';
+  active?: boolean;
+}) => {
+  const response = await api.put<User>(`/users/${id}`, data);
+  return response;
+};
+
+export const deleteUser = async (id: number) => {
+  const response = await api.delete(`/users/${id}`);
+  return response;
+};
+
 export default api;
