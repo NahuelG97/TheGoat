@@ -25,7 +25,7 @@ export const CancelSaleModal: React.FC<CancelSaleModalProps> = ({
     setError('');
 
     if (!reason.trim()) {
-      setError('Reason is required to cancel a sale');
+      setError('Se requiere una razón para cancelar una venta');
       return;
     }
 
@@ -36,7 +36,7 @@ export const CancelSaleModal: React.FC<CancelSaleModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error canceling sale');
+      setError(err.response?.data?.error || 'Error al cancelar venta');
     } finally {
       setLoading(false);
     }
@@ -47,26 +47,26 @@ export const CancelSaleModal: React.FC<CancelSaleModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-sm">
-        <h2 className="text-2xl font-bold text-red-600 mb-4">⚠️ Cancel Sale</h2>
+        <h2 className="text-2xl font-bold text-red-600 mb-4">⚠️ Cancelar Venta</h2>
 
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
           <p className="text-sm text-gray-700">
-            You are about to cancel sale <span className="font-bold">{saleNumber}</span>
+            Estás a punto de cancelar la venta <span className="font-bold">{saleNumber}</span>
           </p>
           <p className="text-xs text-gray-600 mt-2">
-            This sale will be marked as canceled and excluded from your cash drawer audit.
+            Esta venta será marcada como cancelada y excluida de tu auditoría de caja.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Reason for Cancellation (Required)
+              Razón de Cancelación (Requerida)
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Explain why this sale is being canceled..."
+              placeholder="Explica por qué se esta cancelando esta venta..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none resize-none h-24"
               required
               disabled={loading}
@@ -86,14 +86,14 @@ export const CancelSaleModal: React.FC<CancelSaleModalProps> = ({
               className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition"
               disabled={loading}
             >
-              Don't Cancel
+              No Cancelar
             </button>
             <button
               type="submit"
               disabled={loading || !reason.trim()}
               className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition disabled:opacity-50"
             >
-              {loading ? 'Canceling...' : '🗑️ Cancel Sale'}
+              {loading ? 'Cancelando...' : '🗑️ Cancelar Venta'}
             </button>
           </div>
         </form>

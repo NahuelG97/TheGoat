@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -361,7 +360,35 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </>
       )}
 
-      {/* Botón flotante para abrir sidebar cuando está cerrado (en desktop) - OCULTO */}
+      {/* Botón flotante para abrir sidebar cuando está cerrado (en desktop) */}
+      {!sidebarExpanded && (
+        <button
+          onClick={() => setSidebarExpanded(true)}
+          style={{
+            position: 'fixed',
+            left: '16px',
+            top: '16px',
+            width: '44px',
+            height: '44px',
+            borderRadius: '8px',
+            backgroundColor: 'var(--card-bg)',
+            border: '1px solid var(--border-color)',
+            cursor: 'pointer',
+            color: 'var(--text-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+            transition: 'all 0.2s',
+          }}
+          className="hidden lg:flex"
+          title="Abrir sidebar"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
 
       {/* Main Content - Desktop */}
       <div
@@ -410,32 +437,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-
-            {/* Desktop Sidebar Toggle - Solo visible cuando sidebar está cerrado */}
-            {!sidebarExpanded && (
-              <button
-                onClick={() => setSidebarExpanded(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '6px',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--text-primary)',
-                  transition: 'all 0.2s',
-                }}
-                className="hidden lg:flex"
-                title="Abrir sidebar"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            )}
 
             {/* Page Title */}
             <div>

@@ -239,8 +239,8 @@ export const Sales: React.FC = () => {
   // Show loading state
   if (loadingSession) {
     return (
-      <div className="p-4 sm:p-8 flex items-center justify-center min-h-screen">
-        <p className="text-gray-600">Loading cash session...</p>
+      <div style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <p style={{ color: 'var(--text-secondary)' }}>Cargando sesión de caja...</p>
       </div>
     );
   }

@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import './styles/global.css';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import Products from './pages/Products';
@@ -85,9 +87,11 @@ const AppRoutes: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </ThemeProvider>
     </AuthProvider>
   );
 };

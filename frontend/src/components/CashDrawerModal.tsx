@@ -20,7 +20,7 @@ export const CashDrawerModal: React.FC<CashDrawerModalProps> = ({ isOpen, onClos
     try {
       const amount = parseFloat(openingAmount);
       if (isNaN(amount) || amount < 0) {
-        setError('Please enter a valid amount');
+        setError('Por favor, ingresa un monto válido');
         setLoading(false);
         return;
       }
@@ -41,12 +41,12 @@ export const CashDrawerModal: React.FC<CashDrawerModalProps> = ({ isOpen, onClos
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">💰 Open Cash Drawer</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">💰 Abrir Caja</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Opening Amount
+              Monto de Apertura
             </label>
             <input
               type="number"
@@ -54,7 +54,7 @@ export const CashDrawerModal: React.FC<CashDrawerModalProps> = ({ isOpen, onClos
               min="0"
               value={openingAmount}
               onChange={(e) => setOpeningAmount(e.target.value)}
-              placeholder="Enter opening amount"
+              placeholder="Ingresa monto de apertura"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
               required
             />
@@ -73,14 +73,14 @@ export const CashDrawerModal: React.FC<CashDrawerModalProps> = ({ isOpen, onClos
               className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition"
               disabled={loading}
             >
-              Cancel
+              Cancelar
             </button>
             <button
               type="submit"
               className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition disabled:opacity-50"
               disabled={loading}
             >
-              {loading ? 'Opening...' : 'Open Drawer'}
+              {loading ? 'Abriendo...' : 'Abrir Caja'}
             </button>
           </div>
         </form>
