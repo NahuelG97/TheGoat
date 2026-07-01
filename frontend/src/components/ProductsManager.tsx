@@ -23,7 +23,8 @@ const ProductsManager: React.FC = () => {
       setLoading(true);
       setError('');
       const response = await getProducts();
-      setProducts(response.data);
+      const filteredProducts = response.data.filter((product) => product.Active !== 0);
+      setProducts(filteredProducts);
     } catch (err) {
       setError('Error cargando productos');
       console.error(err);
@@ -61,8 +62,9 @@ const ProductsManager: React.FC = () => {
       await deleteProduct(id);
       setDeleteConfirm(null);
       await loadProducts();
-    } catch (err) {
-      setError('Error eliminando producto');
+    } catch (err: any) {
+      const backendMessage = err?.response?.data?.error;
+      setError(backendMessage || 'Error eliminando producto');
       console.error(err);
     } finally {
       setDeleting(false);

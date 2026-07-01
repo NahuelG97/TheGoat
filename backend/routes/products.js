@@ -4,10 +4,22 @@ const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Ensure Products table has Active column for soft delete / hide behavior
+(async function ensureProductsActiveColumn() {
+  try {
+    await executeWithParams(
+      `IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Products') AND name = 'Active')\n       ALTER TABLE Products ADD Active BIT NOT NULL DEFAULT 1`,
+      {}
+    );
+  } catch (err) {
+    console.error('Could not ensure Products.Active column exists:', err);
+  }
+})();
+
 // Get all products
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const products = await query('SELECT Id, Name, Price FROM Products ORDER BY Name');
+    const products = await query('SELECT Id, Name, Price, Active FROM Products WHERE Active = 1 ORDER BY Name');
     // Get ingredient count for each product
     const productsWithCount = await Promise.all(
       products.map(async (product) => {
@@ -37,7 +49,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const productPrice = price || 0;
 
     await executeWithParams(
-      `INSERT INTO Products (Name, Price) VALUES (@name, @price)`,
+      `INSERT INTO Products (Name, Price, Active) VALUES (@name, @price, 1)`,
       { name, price: productPrice }
     );
 
@@ -59,7 +71,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
 
     const products = await queryWithParams(
-      'SELECT Id, Name, Price FROM Products WHERE Id = @id',
+      'SELECT Id, Name, Price, Active FROM Products WHERE Id = @id AND Active = 1',
       { id: parseInt(id) }
     );
 
@@ -92,12 +104,12 @@ router.put('/:id/price', authMiddleware, async (req, res) => {
     }
 
     await executeWithParams(
-      `UPDATE Products SET Price = @price WHERE Id = @id`,
+      `UPDATE Products SET Price = @price WHERE Id = @id AND Active = 1`,
       { id: parseInt(id), price: parseFloat(price) }
     );
 
     const updated = await queryWithParams(
-      'SELECT Id, Name, Price FROM Products WHERE Id = @id',
+      'SELECT Id, Name, Price FROM Products WHERE Id = @id AND Active = 1',
       { id: parseInt(id) }
     );
 
@@ -126,8 +138,31 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Product not found' });
     }
 
+    const salesReference = await queryWithParams(
+      'SELECT COUNT(*) as count FROM SalesDetails WHERE ProductId = @id',
+      { id: parseInt(id) }
+    );
+
+    if (salesReference[0]?.count > 0) {
+      // Keep sales history intact by hiding the product instead of deleting it
+      await executeWithParams(
+        'UPDATE Products SET Active = 0 WHERE Id = @id',
+        { id: parseInt(id) }
+      );
+
+      return res.json({
+        message: 'Producto ocultado porque tiene ventas asociadas.'
+      });
+    }
+
+    // Remove related recipe ingredients before deleting the product
     await executeWithParams(
-      `DELETE FROM Products WHERE Id = @id`,
+      'DELETE FROM ProductIngredients WHERE ProductId = @id',
+      { id: parseInt(id) }
+    );
+
+    await executeWithParams(
+      'DELETE FROM Products WHERE Id = @id',
       { id: parseInt(id) }
     );
 

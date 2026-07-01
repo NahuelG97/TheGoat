@@ -81,6 +81,7 @@ export interface Product {
   Price: number;
   ingredientCount?: number;
   ingredients?: ProductIngredient[];
+  Active?: number | boolean;
 }
 
 export interface ProductIngredient {
