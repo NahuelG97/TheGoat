@@ -52,7 +52,7 @@ export const ArqueoDetailModal: React.FC<ArqueoDetailModalProps> = ({
     setSaleDetailData(null);
   };
 
-  const { session, sales, profitability, paymentSummary, totalPaymentAmount, difference } = arqueoDetail;
+  const { session, sales, profitability, paymentSummary, totalPaymentAmount, totalDelivery, difference } = arqueoDetail;
 
   return (
     <>
@@ -144,10 +144,14 @@ export const ArqueoDetailModal: React.FC<ArqueoDetailModalProps> = ({
             {/* Rentability Section */}
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-300">
               <h3 className="text-lg font-bold mb-3 text-green-900">📈 Rentabilidad</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
                 <div className="bg-white p-3 rounded border border-green-200">
                   <p className="text-xs text-gray-600 mb-1">Total Ventas</p>
                   <p className="text-xl font-bold text-green-700">{formatCurrency(profitability.totalSales)}</p>
+                </div>
+                <div className="bg-white p-3 rounded border border-yellow-200">
+                  <p className="text-xs text-gray-600 mb-1">Delivery Total</p>
+                  <p className="text-xl font-bold text-yellow-700">{formatCurrency(totalDelivery)}</p>
                 </div>
                 <div className="bg-white p-3 rounded border border-red-200">
                   <p className="text-xs text-gray-600 mb-1">Total Costos</p>

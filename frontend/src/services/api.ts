@@ -286,6 +286,7 @@ export interface ArqueoDetail {
     total: number;
   }>;
   totalPaymentAmount: number;
+  totalDelivery: number;
   difference: number;
 }
 
@@ -383,6 +384,7 @@ export const getArqueoDetail = async (cashSessionId: number) => {
     profitability,
     paymentSummary,
     totalPaymentAmount: parseFloat(data.totalPaymentAmount || 0),
+    totalDelivery: parseFloat(data.totalDelivery || 0),
     difference: parseFloat(data.difference || 0)
   };
   

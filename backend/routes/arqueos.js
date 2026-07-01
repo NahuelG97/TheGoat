@@ -128,11 +128,24 @@ router.get('/detail/:cashSessionId', authMiddleware, async (req, res) => {
 
     const paymentSummary = await queryWithParams(paymentSummaryQuery, { sessionId: cashSessionId });
 
+    // Calculate delivery revenue for completed sales separately from product revenue/costs
+    const deliverySummaryQuery = `
+      SELECT 
+        ISNULL(SUM(sd.DeliveryAmount), 0) as TotalDelivery
+      FROM Sales s
+      INNER JOIN SalesDetails sd ON s.Id = sd.SaleId
+      WHERE s.CashSessionId = @sessionId
+        AND s.Status = 'COMPLETED'
+        AND sd.IncludeDelivery = 1
+    `;
+    const deliverySummary = await queryWithParams(deliverySummaryQuery, { sessionId: cashSessionId });
+    const totalDelivery = parseFloat(deliverySummary[0]?.TotalDelivery || 0);
+
     // Calculate costs for completed sales
     const costDetailQuery = `
       SELECT 
         s.Id as SaleId,
-        ISNULL(SUM(sd.Quantity * p.Cost), 0) as SaleCost
+        ISNULL(SUM(ISNULL(sd.Quantity, 0) * ISNULL(p.Cost, 0)), 0) as SaleCost
       FROM Sales s
       LEFT JOIN SalesDetails sd ON s.Id = sd.SaleId
       LEFT JOIN Products p ON sd.ProductId = p.Id
@@ -185,12 +198,14 @@ router.get('/detail/:cashSessionId', authMiddleware, async (req, res) => {
       },
       profitability: {
         totalSales: completedSalesTotal,
+        totalDelivery: totalDelivery,
         totalCosts: totalCost,
         netProfit: netProfit,
         profitMargin: completedSalesTotal > 0 ? ((netProfit / completedSalesTotal) * 100).toFixed(2) : 0
       },
       paymentSummary: paymentSummary,
       totalPaymentAmount: totalPaymentAmount,
+      totalDelivery: totalDelivery,
       difference: conciliationDifference
     });
   } catch (error) {

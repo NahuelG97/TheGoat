@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api, { getCurrentCashSession, CashSession, SalePayment } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { SaleDetailsModal } from '../components/SaleDetailsModal';
 import { OpenCashScreen } from '../components/OpenCashScreen';
 import { CloseCashDrawerModal } from '../components/CloseCashDrawerModal';
 import PaymentSelector from '../components/PaymentSelector';
 import { EditSaleModal } from '../components/EditSaleModal';
 import { CancelSaleModal } from '../components/CancelSaleModal';
+import { TicketPrinter } from '../components/TicketPrinter';
 
 interface Product {
   Id: number;
@@ -20,6 +22,8 @@ interface SaleItem {
   unitPrice: number;
   subtotal: number;
   notes: string;
+  includeDelivery: boolean;
+  deliveryAmount: number;
 }
 
 interface Payment {
@@ -45,11 +49,14 @@ interface SaleDetail {
 }
 
 export const Sales: React.FC = () => {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
   const [quantity, setQuantity] = useState('1');
   const [itemNotes, setItemNotes] = useState('');
+  const [includeDelivery, setIncludeDelivery] = useState(false);
+  const [deliveryAmount, setDeliveryAmount] = useState('0');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -63,6 +70,8 @@ export const Sales: React.FC = () => {
   const [editSaleData, setEditSaleData] = useState<SaleDetail | null>(null);
   const [editSalePayments, setEditSalePayments] = useState<SalePayment[]>([]);
   const [cancelSaleNumber, setCancelSaleNumber] = useState<string>('');
+  const [showTicketPrinter, setShowTicketPrinter] = useState(false);
+  const [ticketData, setTicketData] = useState<{ saleNumber: string; items: SaleItem[]; totalAmount: number; timestamp: string } | null>(null);
   
   // Cash Session states
   const [cashSession, setCashSession] = useState<CashSession | null>(null);
@@ -162,20 +171,26 @@ export const Sales: React.FC = () => {
       }
 
       const unitPrice = product.Price || 0;
-
+      const deliveryAmountValue = includeDelivery ? parseFloat(deliveryAmount) || 0 : 0;
+      const productSubtotal = unitPrice * parseInt(quantity);
+      
       const newItem: SaleItem = {
         productId: selectedProductId as number,
         productName: product.Name,
         quantity: parseInt(quantity),
         unitPrice: unitPrice,
-        subtotal: unitPrice * parseInt(quantity),
+        subtotal: productSubtotal + deliveryAmountValue,
         notes: itemNotes,
+        includeDelivery: includeDelivery,
+        deliveryAmount: deliveryAmountValue,
       };
 
       setSaleItems([...saleItems, newItem]);
       setSelectedProductId('');
       setQuantity('1');
       setItemNotes('');
+      setIncludeDelivery(false);
+      setDeliveryAmount('0');
     } catch (err: any) {
       setError('Error al agregar producto');
       console.error(err);
@@ -214,9 +229,20 @@ export const Sales: React.FC = () => {
           productId: item.productId,
           quantity: item.quantity,
           notes: item.notes,
+          includeDelivery: item.includeDelivery,
+          deliveryAmount: item.deliveryAmount,
         })),
         payments: payments,
       });
+
+      // Show ticket printer
+      setTicketData({
+        saleNumber: response.data.sale.SaleNumber,
+        items: saleItems,
+        totalAmount: totalAmount,
+        timestamp: new Date().toISOString(),
+      });
+      setShowTicketPrinter(true);
 
       setSuccess(
         `¡Venta registrada! Número: ${response.data.sale.SaleNumber}`
@@ -436,6 +462,38 @@ export const Sales: React.FC = () => {
                 />
               </div>
 
+              {/* Delivery Checkbox */}
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <input
+                  type="checkbox"
+                  id="includeDelivery"
+                  checked={includeDelivery}
+                  onChange={(e) => setIncludeDelivery(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <label htmlFor="includeDelivery" className="text-sm font-medium text-gray-700">
+                  ¿Incluye Delivery?
+                </label>
+              </div>
+
+              {/* Delivery Amount */}
+              {includeDelivery && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Monto de Delivery
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={deliveryAmount}
+                    onChange={(e) => setDeliveryAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+
               {/* Add Button */}
               <button
                 type="submit"
@@ -471,6 +529,11 @@ export const Sales: React.FC = () => {
                         {item.notes && (
                           <p className="text-xs text-blue-600 mt-1">
                             📝 {item.notes}
+                          </p>
+                        )}
+                        {item.includeDelivery && (
+                          <p className="text-xs text-green-600 mt-1">
+                            🚚 Delivery: ${Number(item.deliveryAmount).toFixed(2)}
                           </p>
                         )}
                       </div>
@@ -596,6 +659,21 @@ export const Sales: React.FC = () => {
             setSelectedCancelSaleId(null);
             setCancelSaleNumber('');
             loadSales();
+          }}
+        />
+      )}
+
+      {/* Ticket Printer Modal */}
+      {showTicketPrinter && ticketData && (
+        <TicketPrinter
+          saleNumber={ticketData.saleNumber}
+          items={ticketData.items}
+          totalAmount={ticketData.totalAmount}
+          timestamp={ticketData.timestamp}
+          userName={user?.username}
+          onClose={() => {
+            setShowTicketPrinter(false);
+            setTicketData(null);
           }}
         />
       )}

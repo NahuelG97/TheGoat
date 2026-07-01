@@ -26,7 +26,7 @@ router.get('/:saleId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Sale not found' });
     }
 
-    const detailsQuery = `SELECT sd.Id, sd.ProductId, p.Name as ProductName, sd.Quantity, sd.UnitPrice, sd.Subtotal, sd.Notes FROM SalesDetails sd JOIN Products p ON sd.ProductId = p.Id WHERE sd.SaleId = @saleId`;
+    const detailsQuery = `SELECT sd.Id, sd.ProductId, p.Name as ProductName, sd.Quantity, sd.UnitPrice, sd.Subtotal, sd.Notes, COALESCE(sd.DeliveryAmount, 0) as DeliveryAmount, COALESCE(sd.IncludeDelivery, 0) as IncludeDelivery FROM SalesDetails sd JOIN Products p ON sd.ProductId = p.Id WHERE sd.SaleId = @saleId`;
     const details = await queryWithParams(detailsQuery, { saleId: parseInt(saleId) });
 
     res.json({
@@ -77,14 +77,18 @@ router.post('/', authMiddleware, async (req, res) => {
       const priceResults = await queryWithParams(priceQuery, { productId: parseInt(item.productId) });
       const unitPrice = parseFloat(priceResults[0]?.ProductPrice || 0);
       const subtotal = unitPrice * item.quantity;
+      const deliveryAmount = item.includeDelivery ? parseFloat(item.deliveryAmount) || 0 : 0;
+      const itemTotal = subtotal + deliveryAmount;
       
-      totalAmount += subtotal;
+      totalAmount += itemTotal;
       validatedItems.push({
         productId: parseInt(item.productId),
         productName: productResults[0].Name,
         quantity: parseInt(item.quantity),
         unitPrice: unitPrice,
         subtotal: subtotal,
+        deliveryAmount: deliveryAmount,
+        includeDelivery: item.includeDelivery || false,
         notes: item.notes || ''
       });
     }
@@ -154,15 +158,17 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // Insert sale details and process stock deduction
     for (const item of validatedItems) {
-      // Insert sale detail with notes
-      const detailQuery = `INSERT INTO SalesDetails (SaleId, ProductId, Quantity, UnitPrice, Subtotal, Notes) VALUES (@saleId, @productId, @quantity, @unitPrice, @subtotal, @notes)`;
+      // Insert sale detail with notes and delivery info
+      const detailQuery = `INSERT INTO SalesDetails (SaleId, ProductId, Quantity, UnitPrice, Subtotal, Notes, DeliveryAmount, IncludeDelivery) VALUES (@saleId, @productId, @quantity, @unitPrice, @subtotal, @notes, @deliveryAmount, @includeDelivery)`;
       await executeWithParams(detailQuery, {
         saleId: saleId,
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: item.subtotal,
-        notes: item.notes || ''
+        notes: item.notes || '',
+        deliveryAmount: item.deliveryAmount || 0,
+        includeDelivery: item.includeDelivery ? 1 : 0
       });
 
       // Get recipe for product
